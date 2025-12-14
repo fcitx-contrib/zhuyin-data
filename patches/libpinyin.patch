@@ -1,0 +1,13 @@
+diff --git a/Makefile.am b/Makefile.am
+index fbaefed..959ba4a 100644
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -17,7 +17,7 @@
+ EXTRA_DIST		= COPYING
+ 
+ AUTOMAKE_OPTIONS 	= gnu
+-SUBDIRS 		= src tests utils data doc
++SUBDIRS 		= src utils
+ 
+ MAINTAINERCLEANFILES 	= Makefile.in 
+ 

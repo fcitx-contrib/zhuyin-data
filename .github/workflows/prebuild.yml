@@ -1,0 +1,67 @@
+name: prebuild
+
+on:
+  workflow_dispatch:
+
+jobs:
+  prebuild:
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    steps:
+      - name: Install dependencies
+        run: |
+          pacman -Syu --noconfirm base-devel cmake extra-cmake-modules git glib2 kyotocabinet ninja libuv
+
+      - uses: actions/checkout@v6
+        with:
+          submodules: true
+
+      - uses: actions/checkout@v6
+        with:
+          repository: fcitx/fcitx5
+          path: fcitx5
+
+      - name: Build fcitx5
+        working-directory: fcitx5
+        run: |
+          cmake -B build -G Ninja -DENABLE_KEYBOARD=Off -DENABLE_X11=Off -DENABLE_WAYLAND=Off -DENABLE_ENCHANT=Off \
+            -DENABLE_DBUS=Off -DENABLE_SERVER=Off -DENABLE_EMOJI=Off -DUSE_SYSTEMD=Off -DENABLE_TEST=OFF
+          cmake --build build
+          cmake --install build
+
+      - name: Build libpinyin
+        working-directory: libpinyin
+        run: |
+          git apply ../patches/libpinyin.patch
+          autoreconf -i
+          ./configure --with-dbm=KyotoCabinet --enable-libzhuyin
+          make -j8
+          make install
+
+      - name: Build fcitx5-zhuyin
+        working-directory: fcitx5-zhuyin
+        env:
+          PKG_CONFIG_PATH: /usr/local/lib/pkgconfig
+        run: |
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build
+          DESTDIR=$(pwd) cmake --install build
+
+      - name: Package
+        working-directory: fcitx5-zhuyin/usr/local
+        run: |
+          tar cjf ../../../zhuyin-data.tar.bz2 share/fcitx5/lua share/fcitx5/zhuyin
+
+      - name: Release data
+        uses: 'marvinpinto/action-automatic-releases@latest'
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          automatic_release_tag: latest
+          prerelease: true
+          title: "Nightly Build"
+          files: |
+            zhuyin-data.tar.bz2
+
+      - name: Setup tmate session
+        if: ${{ failure() }}
+        uses: mxschmitt/action-tmate@v3
